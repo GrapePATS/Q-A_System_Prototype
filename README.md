@@ -4,12 +4,11 @@
 
 1. [Project Overview](#1-project-overview)
 2. [Architecture & Approach](#2-architecture--approach)
-3. [Environment Setup](#3-environment-setup)
-4. [Running the Prototype](#4-running-the-prototype)
-5. [Project Structure](#5-project-structure)
-6. [Assumptions](#6-assumptions)
-7. [Known Limitations](#7-limitations)
-8. [Ideas for Future Improvements](#8-ideas-for-future-improvements)
+3. [Setup & Run Guide](#3-setup--run-guide)
+4. [Project Structure](#4-project-structure)
+5. [Assumptions](#5-assumptions)
+6. [Known Limitations](#6-known-limitations)
+7. [Ideas for Future Improvements](#7-ideas-for-future-improvements)
 
 ---
 
@@ -101,14 +100,20 @@ Chunk size of 800 tokens with 120-token overlap. The overlap ensures financial t
 
 ---
 
-## 3. Environment Setup
+## 3. Setup & Run Guide
 
 ### Requirements
-
 - Python 3.10 or higher
 - An OpenAI API key with access to `text-embedding-3-small` and `gpt-4o-mini`
 
-### Step 1 — Create a virtual environment
+### Step 1 — Clone the repository
+
+```bash
+git clone https://github.com/GrapePATS/Q-A_System_Prototype.git
+cd Q-A_System_Prototype
+```
+
+### Step 2 — Create a virtual environment
 
 ```bash
 python -m venv .venv
@@ -116,7 +121,7 @@ source .venv/bin/activate          # macOS / Linux
 .venv\Scripts\activate             # Windows
 ```
 
-### Step 2 — Install dependencies
+### Step 3 — Install dependencies
 
 ```bash
 pip install -r requirements.txt
@@ -124,7 +129,7 @@ pip install -r requirements.txt
 
 Key packages: `langchain` `langchain-openai` `langchain-community` `faiss-cpu` `llama-index-core` `llama-index-llms-openai` `llama-index-embeddings-openai` `pypdf` `python-dotenv`
 
-### Step 3 — Configure environment variables
+### Step 4 — Configure environment variables
 
 ```bash
 cp .env.example .env
@@ -146,101 +151,13 @@ CHAT_MODEL=gpt-4o-mini                       # Optional — this is the default
 - Copy and save it
 3. Add to `.env`
 
-### Step 4 — Prepare the data directory
-
-Place documents under `data/` using the category subfolder structure:
-
+### Step 5 — Run the application
 ```
-data/
-  market_reports/
-    daily_market_report_2026_03_10.md
-    daily_market_report_2026_03_11.md
-  stock_recommendations/
-    bbl_research_report.md
-    kbank_research_report.md
-    ptt_research_report.md
-    delta_research_report.md
-  regulations/
-    set_trading_rules.md
-  company_profiles/
-    banking_sector.md
-    energy_sector.md
+streamlit run main.py
 ```
+Then open the local URL shown in your terminal (usually http://localhost:8501).
 
-> The folder name becomes the document's `category` field, used for display and structured filtering. Keep names lowercase with underscores.
-
----
-
-## 4. Running the Prototype
-
-### Step 1 — Build the index
-
-Run once, or whenever documents are added or changed:
-
-```bash
-python -m app.ingestion.indexer
-```
-
-This will load all supported documents from `data/`, chunk and enrich them, then save the FAISS index to `storage/faiss_index/` and doc-level metadata to `storage/metadata_store.json`.
-
-Expected output:
-```
-Built N chunks from M documents
-FAISS index saved to storage/faiss_index (N chunks)
-```
-
-> **Cost note:** Enrichment calls the OpenAI API once per chunk across 4 extractors. For the 9 provided sample documents this takes roughly 2–4 minutes and uses approximately 50,000–80,000 tokens.
-
-### Step 2 — Ask questions
-
-```python
-from app.qa.answerer import QAService
-
-service = QAService()
-
-# Basic question
-result = service.ask("What is PTT's SOTP target price per share?")
-print(result["answer"])
-print(result["sources"])
-
-# Ticker-filtered — restricts retrieval to BBL documents only
-result = service.ask(
-    "What is the NPL ratio trend?",
-    ticker="BBL",
-)
-
-# Doc-type-filtered — market reports only
-result = service.ask(
-    "Which sectors gained on March 11?",
-    doc_type="market_reports",
-)
-```
-
-**Result dict keys:**
-
-| Key | Type | Description |
-|---|---|---|
-| `answer` | `str` | LLM-generated answer |
-| `sources` | `list` | Deduplicated source metadata (doc_id, file_name, category, ticker, rating, report_date, analyst) |
-| `retrieved_chunks` | `list` | Raw LangChain Documents for eval / debug |
-| `chunk_count` | `int` | Number of chunks passed to the LLM |
-| `model` | `str` | Model name used for generation |
-
-### Offline structured filtering (no vector search, no LLM call)
-
-```python
-retriever = service.retriever
-
-# All BUY-rated stocks with target price above THB 100
-buy_stocks = retriever.filter_by_metadata(
-    rating="Buy",
-    min_target_price=100.0,
-)
-```
-
----
-
-## 5. Project Structure
+## 4. Project Structure
 
 ```
 app/
@@ -266,13 +183,13 @@ requirements.txt             — Python dependencies
 
 ---
 
-## 6. Assumptions
+## 5. Assumptions
 - Pipeline Efficacy: The overall system performance is fundamentally driven by the synergy between strategic Chunking, robust Hybrid Retrieval, and Grounded Generation.
 - Metadata Centrality: High-fidelity metadata is the primary catalyst for improving retrieval precision and maintaining context within individual data chunks.
 
 ---
 
-## 7. Limitations
+## 6. Limitations
 
 - Structural Integrity of Tables: Since TokenTextSplitter operates on token count rather than semantic structure, extensive financial tables (exceeding 800 tokens) risk being bifurcated. While a 120-token overlap mitigates this, it does not fully guarantee the preservation of table headers and relational context.
 - Heuristic Metadata Extraction: The current regex-based approach is effective for standardized patterns but lacks the flexibility to capture non-conventional formats, such as Thai numerals or vernacular rating descriptions.
@@ -282,7 +199,7 @@ requirements.txt             — Python dependencies
 
 ---
 
-## 8. Ideas for Future Improvements
+## 7. Ideas for Future Improvements
 
 - Advanced Document Classification: Implement an automated doc_type classifier to improve retrieval routing and metadata application.
 - Enhanced Metadata Architecture: Upgrade from simple rule-based extraction to an LLM-powered or Hybrid-Entity Recognition (NER) model to capture complex financial entities more accurately.
